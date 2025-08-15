@@ -1,6 +1,25 @@
 # Cryptocurrency Linear Regression Trading System
 
+[![Test Status](https://github.com/Deftextra/crypto_trader/workflows/Test%20Crypto%20Trading%20System/badge.svg)](https://github.com/Deftextra/crypto_trader/actions)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub issues](https://img.shields.io/github/issues/Deftextra/crypto_trader)](https://github.com/Deftextra/crypto_trader/issues)
+[![GitHub stars](https://img.shields.io/github/stars/Deftextra/crypto_trader)](https://github.com/Deftextra/crypto_trader/stargazers)
+
 A comprehensive cryptocurrency trading system that uses linear regression models to predict price movements and execute trades based on technical indicators and market data from Coinbase.
+
+🚀 **Live Demo**: Generate real crypto price predictions using machine learning!
+
+## Quick Start
+
+```bash
+git clone https://github.com/Deftextra/crypto_trader.git
+cd crypto_trader
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py --mode predict --symbol BTC-USD
+```
 
 ## Features
 
