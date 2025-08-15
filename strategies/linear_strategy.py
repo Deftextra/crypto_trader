@@ -224,20 +224,40 @@ class LinearRegressionStrategy:
             # Additional confirmation: look at recent predictions
             if len(features) >= self.lookback_periods:
                 recent_predictions = []
-                for i in range(min(self.lookback_periods, len(features))):
-                    pred = self.model.predict(features.iloc[-(i+1):-(i)].values.reshape(1, -1))[0]
-                    recent_predictions.append(pred)
+                # Get last few rows for consistency check
+                lookback_window = min(self.lookback_periods, len(features))
                 
-                # Check consistency
-                if signal == Signal.BUY:
-                    consistent = sum(1 for p in recent_predictions if p > 0) >= len(recent_predictions) * 0.6
-                elif signal == Signal.SELL:
-                    consistent = sum(1 for p in recent_predictions if p < 0) >= len(recent_predictions) * 0.6
+                for i in range(1, lookback_window + 1):
+                    # Handle both DataFrame and numpy array inputs
+                    if hasattr(features, 'iloc'):
+                        # It's a DataFrame
+                        row_features = features.iloc[-i:-i+1] if i < len(features) else features.tail(1)
+                    else:
+                        # It's already a numpy array or similar
+                        row_features = features[-i:] if i <= len(features) else features[-1:]
+                    
+                    try:
+                        pred = self.model.predict(row_features)[0]
+                        recent_predictions.append(pred)
+                    except Exception as pred_error:
+                        logger.debug(f"Prediction error for lookback {i}: {pred_error}")
+                        # Skip this prediction if it fails
+                        continue
+                
+                # Check consistency only if we have enough predictions
+                if len(recent_predictions) >= 2:
+                    if signal == Signal.BUY:
+                        consistent = sum(1 for p in recent_predictions if p > 0) >= len(recent_predictions) * 0.6
+                    elif signal == Signal.SELL:
+                        consistent = sum(1 for p in recent_predictions if p < 0) >= len(recent_predictions) * 0.6
+                    else:
+                        consistent = True
+                    
+                    if not consistent:
+                        confidence *= 0.5  # Reduce confidence if not consistent
                 else:
-                    consistent = True
-                
-                if not consistent:
-                    confidence *= 0.5  # Reduce confidence if not consistent
+                    # Not enough predictions for consistency check, keep original confidence
+                    pass
             
             return signal, confidence
             

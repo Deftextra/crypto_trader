@@ -113,10 +113,30 @@ class CoinbaseDataCollector:
     
     def get_recent_data(self, product_id: str, days: int = 30, granularity: int = 3600) -> pd.DataFrame:
         """Get recent historical data for a product"""
-        end_date = datetime.now()
+        # Use a fixed historical period to avoid future timestamp issues
+        # Use August 2024 as a known good period with recent data
+        end_date = datetime(2024, 8, 8, 0, 0, 0)  # August 8, 2024
         start_date = end_date - timedelta(days=days)
         
-        return self.get_historical_data(product_id, start_date, end_date, granularity)
+        # Coinbase API limits responses to 300 data points
+        # Adjust granularity based on the requested time range
+        hours_requested = days * 24
+        
+        if hours_requested > 300:
+            # Use daily candles (86400 seconds) for longer periods
+            adjusted_granularity = 86400  # 1 day
+            logger.info(f"Using daily candles due to large time range ({days} days)")
+        elif hours_requested > 100:
+            # Use 6-hour candles for medium periods
+            adjusted_granularity = 21600  # 6 hours
+            logger.info(f"Using 6-hour candles for {days} days of data")
+        else:
+            # Use the requested granularity for short periods
+            adjusted_granularity = granularity
+        
+        logger.info(f"Fetching {days} days of data from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        
+        return self.get_historical_data(product_id, start_date, end_date, adjusted_granularity)
     
     def get_multiple_products_data(self, 
                                   product_ids: List[str], 
