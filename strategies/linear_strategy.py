@@ -38,7 +38,7 @@ class Position:
         self.size = size
         self.entry_price = entry_price
         self.timestamp = timestamp
-        self.exit_price = None
+        self.exit_price : float | None = None 
         self.exit_timestamp = None
         self.pnl = 0.0
         self.is_open = True

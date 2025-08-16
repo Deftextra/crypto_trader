@@ -272,18 +272,24 @@ class FeatureEngineer:
         
         return df
     
-    def engineer_all_features(self, df: pd.DataFrame, target_hours: int = 1) -> pd.DataFrame:
+    def engineer_all_features(self, df: pd.DataFrame, target_hours: int = 1, prediction_mode: bool = False) -> pd.DataFrame:
         """Apply all feature engineering steps"""
         logger.info("Starting feature engineering...")
         
-        # Create all features
+        # Use consistent feature engineering for both training and prediction
+        # to ensure feature compatibility
+        
+        # Create all features with standard parameters
         df = self.create_price_features(df)
-        df = self.create_moving_averages(df)
+        df = self.create_moving_averages(df)  # Uses default windows [5, 10, 20, 50]
         df = self.create_technical_indicators(df)
-        df = self.create_lag_features(df)
-        df = self.create_rolling_statistics(df)
+        df = self.create_lag_features(df)  # Uses default lags [1, 2, 3, 5, 10]
+        df = self.create_rolling_statistics(df)  # Uses default windows [5, 10, 20]
         df = self.create_time_features(df)
-        df = self.create_target_variable(df, target_hours)
+        
+        # Only create target variable if not in prediction mode (for current data)
+        if not prediction_mode:
+            df = self.create_target_variable(df, target_hours)
         
         logger.info(f"Feature engineering complete. Shape: {df.shape}")
         

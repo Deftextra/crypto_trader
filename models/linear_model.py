@@ -48,6 +48,7 @@ class CryptoLinearModel:
         self.feature_selector = None
         self.feature_names = None
         self.selected_features = None
+        self.training_metrics = None  # Store training metrics for confidence calculation
         
         self._initialize_components()
     
@@ -174,6 +175,9 @@ class CryptoLinearModel:
             'val_r2': r2_score(y_val, y_val_pred)
         }
         
+        # Store training metrics for confidence calculation
+        self.training_metrics = metrics
+        
         logger.info(f"Training complete. Validation R²: {metrics['val_r2']:.4f}")
         
         return metrics
@@ -187,6 +191,46 @@ class CryptoLinearModel:
         predictions = self.model.predict(X_processed)
         
         return predictions
+    
+    def calculate_prediction_confidence(self, prediction: float) -> float:
+        """
+        Calculate confidence score for a prediction based on model performance
+        
+        Args:
+            prediction: The predicted value
+        
+        Returns:
+            Confidence score between 0 and 1 (higher is more confident)
+        """
+        if self.training_metrics is None:
+            return 0.5  # Default moderate confidence if no training metrics
+        
+        # Base confidence on validation R² score
+        val_r2 = self.training_metrics.get('val_r2', 0)
+        
+        # Transform R² to confidence:
+        # Good models (R² > 0.5) get high confidence
+        # Poor models (R² < 0) get low confidence
+        if val_r2 > 0.7:
+            base_confidence = 0.8 + 0.2 * min((val_r2 - 0.7) / 0.3, 1.0)
+        elif val_r2 > 0.3:
+            base_confidence = 0.5 + 0.3 * (val_r2 - 0.3) / 0.4
+        elif val_r2 > 0:
+            base_confidence = 0.3 + 0.2 * val_r2 / 0.3
+        else:
+            base_confidence = 0.1 + 0.2 * max((val_r2 + 1.0), 0) / 1.0
+        
+        # Reduce confidence for extreme predictions (beyond typical training range)
+        # More extreme predictions are less reliable
+        prediction_magnitude = abs(prediction)
+        if prediction_magnitude > 10:  # Very large predicted returns are less reliable
+            magnitude_penalty = min(0.3, (prediction_magnitude - 10) / 20)
+            base_confidence -= magnitude_penalty
+        
+        # Ensure confidence is between 0 and 1
+        confidence = max(0.0, min(1.0, base_confidence))
+        
+        return confidence
     
     def predict_with_confidence(self, X: pd.DataFrame, n_bootstrap: int = 100) -> Tuple[np.ndarray, np.ndarray]:
         """

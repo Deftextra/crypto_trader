@@ -296,11 +296,32 @@ class CryptoTradingSystem:
         
         logger.info(f"Generating prediction for {symbol}")
         
-        # Get recent data
-        data = self.collect_data(symbol, days=7)  # Get 7 days for features
-        X, _ = self.prepare_features(data)
+        # Get sufficient data for prediction - need enough for full feature engineering
+        # to match training features
+        min_days_needed = 60  # Use same as training to ensure feature consistency
+        data = self.collect_data(symbol, days=min_days_needed)
         
-        # Generate prediction
+        # Use standard feature engineering (same as training) but without target variables
+        logger.info("Engineering features for prediction...")
+        df_features = self.feature_engineer.engineer_all_features(
+            data, 
+            target_hours=self.config['target_hours'],
+            prediction_mode=True  # This avoids creating target variables
+        )
+        
+        # Prepare features for prediction (no target variable available)
+        df_clean = df_features.dropna().copy()
+        feature_cols = self.feature_engineer.get_feature_columns(df_clean)
+        X = df_clean[feature_cols]
+        
+        if X.empty:
+            raise ValueError(f"Insufficient data for prediction after feature engineering. "
+                           f"Collected {len(data)} data points but got 0 valid samples after preprocessing. "
+                           f"Try using a saved model trained on more data.")
+        
+        logger.info(f"Features prepared for prediction: {X.shape[0]} samples, {X.shape[1]} features")
+        
+        # Generate prediction using the most recent data point
         latest_features = X.tail(1)
         prediction = self.model.predict(latest_features)[0]
         
@@ -311,20 +332,23 @@ class CryptoTradingSystem:
         predicted_return = prediction
         predicted_price = current_price * (1 + predicted_return / 100)
         
+        # Calculate proper confidence based on model performance
+        confidence = self.model.calculate_prediction_confidence(predicted_return)
+        
         prediction_results = {
             'symbol': symbol,
             'current_price': current_price,
             'predicted_return': predicted_return,
             'predicted_price': predicted_price,
             'timestamp': data.iloc[-1]['timestamp'],
-            'confidence': abs(predicted_return)
+            'confidence': confidence
         }
         
         logger.info(f"Prediction Results:")
         logger.info(f"  Current Price: ${current_price:.2f}")
         logger.info(f"  Predicted Return: {predicted_return:.2f}%")
         logger.info(f"  Predicted Price: ${predicted_price:.2f}")
-        logger.info(f"  Confidence: {abs(predicted_return):.2f}%")
+        logger.info(f"  Confidence: {confidence:.2%}")
         
         return prediction_results
     
@@ -480,7 +504,7 @@ def main():
             print(f"Current Price: ${prediction['current_price']:.2f}")
             print(f"Predicted Return: {prediction['predicted_return']:.2f}%")
             print(f"Predicted Price: ${prediction['predicted_price']:.2f}")
-            print(f"Confidence: {prediction['confidence']:.2f}%")
+            print(f"Confidence: {prediction['confidence']:.2%}")
             print(f"Timestamp: {prediction['timestamp']}")
         
         elif args.mode == 'compare':
